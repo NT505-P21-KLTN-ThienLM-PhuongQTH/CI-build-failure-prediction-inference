@@ -1,0 +1,40 @@
+# config/settings.yaml
+model:
+  name: "BuildFailureModel"
+  target_features: [
+    "gh_project_name",
+    "gh_build_started_at",
+    "build_failed",
+    "gh_num_issue_comments",
+    "gh_num_pr_comments",
+    "gh_team_size",
+    "gh_sloc",
+    "git_diff_src_churn",
+    "git_diff_test_churn",
+    "gh_diff_files_added",
+    "gh_diff_files_deleted",
+    "gh_diff_tests_added",
+    "gh_diff_src_files",
+    "gh_diff_doc_files",
+    "gh_test_cases_per_kloc",
+    "gh_is_pr",
+    "gh_num_commit_comments",
+    "tr_duration",
+    "year_of_start",
+    "month_of_start",
+    "day_of_start",
+    "same_committer",
+    "proj_fail_rate_history",
+    "proj_fail_rate_recent",
+    "comm_fail_rate_history",
+    "comm_fail_rate_recent",
+    "comm_avg_experience",
+    "no_config_edited",
+    "num_files_edited",
+    "num_distinct_authors",
+    "prev_build_result",
+    "day_week",
+  ]
+api:
+  host: "0.0.0.0"
+  port: 8000
