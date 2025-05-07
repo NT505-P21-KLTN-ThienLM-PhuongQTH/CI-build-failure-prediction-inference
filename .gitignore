@@ -1,5 +1,9 @@
-/data
+data/combined/**
+data/processed-local/**
+data/processed-local-best/**
+data/raw/**
 .venv
 .env
 /logs/*
 /.idea
+.dvc/config.local
