@@ -1,5 +1,5 @@
 [core]
-    remote = dvc
-['remote "dvc"']
+    remote = dagshub-remote
+['remote "dagshub-remote"']
     url = s3://dvc
-    endpointurl = http://stag.mlflow.th1enlm02.live:9001
+    endpointurl = https://dagshub.com/hoaiphuongdg26/CI-build-failure-prediction-inference.s3
