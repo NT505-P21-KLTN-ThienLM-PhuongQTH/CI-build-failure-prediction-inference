@@ -1,6 +1,6 @@
 # config/settings.yaml
 model:
-  name: "BuildFailureModel"
+  name: "Stacked-LSTM"
   target_features: [
     "gh_project_name",
     "gh_build_started_at",
