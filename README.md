@@ -1,3 +1,3 @@
 ```
-uvicorn src.api.main:app --reload
+uvicorn main:app --reload
 ```

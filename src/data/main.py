@@ -1,13 +1,11 @@
 import os
-from logging import config
-from venv import logger
+import logging.config
 import pandas as pd
 import numpy as np
 import logging
 from src.data.processing import load_data, process_status, summarize_projects, fill_nan_values, \
     encode_categorical_columns, normalize_numerical_columns, encode_cyclical_time_features, save_projects_to_files, \
     drop_low_importance_features, add_build_features, boolean_to_float
-from src.data.visualization import plot_line, plot_pie, plot_multi_project, plot_feature_importance
 from src.data.feature_analysis import prepare_features, print_nan_columns, aggregate_feature_importance
 import yaml
 
@@ -17,20 +15,18 @@ with open("config/settings.yaml") as f:
 PROJECT_ROOT = os.path.abspath(os.path.dirname(__file__))
 
 
-def split_into_sequences(df, time_step, return_y=False):
+def split_into_sequences(X, y, time_step, return_y=False):
     try:
         if time_step <= 0:
-            logger.error(f"time_step must be positive, got {time_step}")
+            logging.error(f"time_step must be positive, got {time_step}")
             raise ValueError(f"time_step must be positive, got {time_step}")
 
-        X, y = prepare_features(df, target_column='build_failed')
-
         if X.shape[1] == 0:
-            logger.warning("No features remain after prepare_features. Returning empty sequences.")
+            logging.warning("No features remain after prepare_features. Returning empty sequences.")
             return np.empty((0, time_step, 0)) if not return_y else (np.empty((0, time_step, 0)), np.array([]))
 
         if len(X) < time_step:
-            logger.warning(f"Data has only {len(X)} rows, which is less than time_step={time_step}")
+            logging.warning(f"Data has only {len(X)} rows, which is less than time_step={time_step}")
             return np.empty((0, time_step, X.shape[1]))
 
         # Tạo các chuỗi theo time_step
@@ -38,7 +34,7 @@ def split_into_sequences(df, time_step, return_y=False):
         sequences = [X_values[i:i + time_step] for i in range(len(X_values) - time_step + 1)]
         X_sequences = np.array(sequences)
 
-        logger.info(f"Created {len(X_sequences)} sequences with time_step={time_step} and {X.shape[1]} features")
+        logging.info(f"Created {len(X_sequences)} sequences with time_step={time_step} and {X.shape[1]} features")
         if return_y:
             y_values = y.values
             y_sequences = y_values[time_step - 1:len(y_values)]
@@ -46,7 +42,7 @@ def split_into_sequences(df, time_step, return_y=False):
         return X_sequences
 
     except Exception as e:
-        logger.error(f"Failed to split data into sequences: {str(e)}")
+        logging.error(f"Failed to split data into sequences: {str(e)}")
         raise
 
 def preprocess_data(is_training=None, DO_FEATURE_IMPORTANCE=False, target_features=None, input=None):

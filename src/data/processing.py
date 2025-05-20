@@ -1,11 +1,8 @@
 import pandas as pd
-import numpy as np
 from sklearn.preprocessing import MinMaxScaler, LabelEncoder
 import os
 import glob
 from collections import defaultdict
-
-from src.data.feature_analysis import aggregate_feature_importance
 
 # Định nghĩa dtype cho các cột đặc biệt
 DTYPE_SPEC = {
@@ -424,10 +421,10 @@ def boolean_to_float(df):
     for col in df.columns:
         temp_col = df[col].astype(str).str.strip().str.lower()
         if temp_col.isin(['true', 'false', '1', '0', '1.0', '0.0']).all():
-            df[col] = temp_col.replace({
+            df[col] = temp_col.map({
                 'true': 1.0, '1': 1.0, '1.0': 1.0,
                 'false': 0.0, '0': 0.0, '0.0': 0.0
-            }).infer_objects(copy=False).astype(float)
+            }).astype(float)
 
         elif df[col].dtype == bool:
             df[col] = df[col].astype(float)

@@ -1,5 +1,5 @@
 [core]
-    remote = dagshub-remote
-['remote "dagshub-remote"']
+    remote = dagshub
+['remote "dagshub"']
     url = s3://dvc
     endpointurl = https://dagshub.com/hoaiphuongdg26/CI-build-failure-prediction-inference.s3

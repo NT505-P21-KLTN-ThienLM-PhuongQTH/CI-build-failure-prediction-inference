@@ -128,7 +128,7 @@ def prepare_features(df, target_column='build_failed'):
     Cảnh báo nếu có cột không phải kiểu số."""
     numeric_types = ['int64', 'float64', 'int32', 'float32']
 
-    excluded_columns = [target_column, "gh_build_started_at", "gh_project_name"]
+    excluded_columns = ["gh_build_started_at", "gh_project_name"]
     non_numeric_cols = [
         col for col in df.columns
         if df[col].dtype.name not in numeric_types and col not in excluded_columns
