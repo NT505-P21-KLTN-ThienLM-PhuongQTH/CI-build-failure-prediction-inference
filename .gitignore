@@ -1,4 +1,5 @@
 data/combined/**
+data/processed/**
 data/processed-local/**
 data/processed-local-best/**
 data/raw/**
