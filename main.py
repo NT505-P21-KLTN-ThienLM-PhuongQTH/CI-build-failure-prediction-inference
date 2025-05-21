@@ -5,7 +5,7 @@ import yaml
 from fastapi import FastAPI
 from dotenv import load_dotenv
 from fastapi.middleware.cors import CORSMiddleware
-from api.routes import health, predict
+from api.routes import health, predict, append
 
 # Load .env và config
 load_dotenv()
@@ -40,3 +40,4 @@ app.add_middleware(
 # Include routers
 app.include_router(predict.router)
 app.include_router(health.router)
+app.include_router(append.router)
