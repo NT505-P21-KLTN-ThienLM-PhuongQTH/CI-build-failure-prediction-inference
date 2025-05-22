@@ -4,6 +4,7 @@ import pandas as pd
 import tempfile
 import time
 from fastapi import APIRouter, HTTPException
+from api.routes.retrain import trigger_training_message
 from api.schemas.append import AppendData
 from dagshub.upload import Repo
 from dotenv import load_dotenv
@@ -16,18 +17,6 @@ router = APIRouter()
 
 @router.post("/dataset/append")
 async def append(data: AppendData):
-    """
-    Endpoint to preprocess ci_builds data and append to DagsHub repository in data/processed-local.
-
-    Args:
-        data: List of AppendData containing ci_builds to be preprocessed and uploaded.
-
-    Returns:
-        dict: Message indicating success or failure, with remote path.
-
-    Raises:
-        HTTPException: If there's an error during processing or upload.
-    """
     start_time = time.perf_counter()
     try:
         # Kiểm tra dữ liệu đầu vào
@@ -67,7 +56,8 @@ async def append(data: AppendData):
         # Định nghĩa đường dẫn từ xa trên DagsHub
         project_name = input_df["gh_project_name"].iloc[0]
         project_name = project_name.split("/", 1)[-1]
-        remote_path = f"data/processed-local/{project_name}.csv"
+        branch = input_df["git_branch"].iloc[0]
+        remote_path = f"data/processed-local/{project_name}-{branch}.csv"
 
         # Tải file lên DagsHub
         repo.upload(
@@ -81,6 +71,10 @@ async def append(data: AppendData):
         # Xóa file tạm
         os.remove(local_path)
         logger.debug(f"Đã xóa file tạm: {local_path}")
+
+        if data.retrain:
+            await trigger_training_message()
+
         duration = time.perf_counter() - start_time
         return {
             "status": 200,

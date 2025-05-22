@@ -6,7 +6,7 @@ import logging
 from src.data.processing import load_data, process_status, summarize_projects, fill_nan_values, \
     encode_categorical_columns, normalize_numerical_columns, encode_cyclical_time_features, save_projects_to_files, \
     drop_low_importance_features, add_build_features, boolean_to_float
-from src.data.feature_analysis import prepare_features, print_nan_columns, aggregate_feature_importance
+from src.data.feature_analysis import prepare_features, aggregate_feature_importance
 import yaml
 
 with open("config/settings.yaml") as f:
@@ -76,7 +76,9 @@ def preprocess_data(is_training=None, DO_FEATURE_IMPORTANCE=False, target_featur
 
     dataset = {
         project: data.copy()
-        for project, data in combined_df.groupby('gh_project_name')
+        for project, data in combined_df.groupby(
+            ['gh_project_name', 'git_branch'] if 'git_branch' in combined_df.columns else 'gh_project_name'
+        )
         if selected_projects is None or project in selected_projects
     }
     logger.info(f"Projects in dataset: {list(dataset.keys())}")
