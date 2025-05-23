@@ -12,6 +12,8 @@ router = APIRouter()
 @router.post("/retrain")
 async def retrain():
     await trigger_training_message()
+    return {"message": "Training triggered successfully"
+            }
 
 async def trigger_training_message():
     try:

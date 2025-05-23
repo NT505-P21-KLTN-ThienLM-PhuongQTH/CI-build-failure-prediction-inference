@@ -8,3 +8,4 @@ data/raw/**
 /logs/*
 /.idea
 .dvc/config.local
+cache/

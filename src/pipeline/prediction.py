@@ -5,18 +5,21 @@ import pandas as pd
 import numpy as np
 import logging.config
 from keras.models import load_model
-from api.schemas.predict import PredictData
+from keras import losses
 from src.data.feature_analysis import prepare_features
 from src.data.main import preprocess_data
+import os
+import hashlib
 
 logger = logging.getLogger("api.predict")
 
 class LSTMPredictionPipeline:
-    def __init__(self, predict_name, predict_version=None, padding_name=None, padding_version=None):
+    def __init__(self, predict_name, predict_version=None, padding_name=None, padding_version=None, cache_dir="cache/models"):
         self.predict_name = predict_name
         self.predict_version = predict_version
         self.padding_name = padding_name
         self.padding_version = padding_version
+        self.cache_dir = cache_dir
         self.mlflow_client = MlflowClient()
         self.predict = None
         self.padding = None
@@ -25,9 +28,15 @@ class LSTMPredictionPipeline:
         self.input_dim = None
         self.load_models()
 
+    def _generate_cache_path(self, model_name, model_version):
+        """Generate a unique cache file path for a model based on name and version."""
+        cache_key = f"{model_name}_{model_version or 'latest'}"
+        cache_filename = hashlib.md5(cache_key.encode()).hexdigest() + ".h5"
+        return os.path.join(self.cache_dir, cache_filename)
+
     def _get_model_version(self, model_name, model_version=None):
         """
-        Lấy thông tin phiên bản mô hình từ MLflow. Nếu không chỉ định version, lấy version mới nhất theo thời gian tạo.
+        Lấy thông tin phiên bản mô hình từ MLflow. Nếu không chỉ định version, lấy version mới nhất.
         """
         try:
             if model_version:
@@ -43,21 +52,57 @@ class LSTMPredictionPipeline:
             raise HTTPException(status_code=500, detail=f"Lấy phiên bản mô hình thất bại: {str(e)}")
 
     def load_models(self):
-        """Tải mô hình dự đoán và module padding từ MLflow."""
+        """Tải mô hình dự đoán và module padding từ cache hoặc MLflow."""
         try:
+            # Ensure cache directory exists
+            os.makedirs(self.cache_dir, exist_ok=True)
+
+            # Custom objects for deserialization
+            custom_objects = {
+                "mse": losses.MeanSquaredError(),
+                "MeanSquaredError": losses.MeanSquaredError(),
+                "mean_squared_error": losses.MeanSquaredError()
+            }
+
             # Tải mô hình dự đoán
-            predict_info, self.predict_version= self._get_model_version(self.predict_name, self.predict_version)
-            predict_uri = f"models:/{self.predict_name}/{self.predict_version}"
-            self.predict = mlflow.keras.load_model(predict_uri)
-            logger.info(f"Đã tải mô hình dự đoán từ {predict_uri}")
+            predict_info, self.predict_version = self._get_model_version(self.predict_name, self.predict_version)
+            predict_cache_path = self._generate_cache_path(self.predict_name, self.predict_version)
+
+            if os.path.exists(predict_cache_path):
+                try:
+                    logger.info(f"Loading predict model from cache: {predict_cache_path}")
+                    self.predict = load_model(predict_cache_path, custom_objects=custom_objects)
+                except Exception as e:
+                    logger.warning(f"Failed to load predict model from cache: {str(e)}. Removing corrupted cache file.")
+                    os.remove(predict_cache_path)  # Remove corrupted cache file
+                    raise  # Re-raise to trigger MLflow download
+            else:
+                predict_uri = f"models:/{self.predict_name}/{self.predict_version}"
+                logger.info(f"Downloading predict model from {predict_uri}")
+                self.predict = mlflow.keras.load_model(predict_uri)
+                # Save model to cache
+                self.predict.save(predict_cache_path)
+                logger.info(f"Saved predict model to cache: {predict_cache_path}")
 
             # Tải module padding
             padding_info, self.padding_version = self._get_model_version(self.padding_name, self.padding_version)
-            padding_uri = f"models:/{self.padding_name}/{self.padding_version}"
-            self.padding = mlflow.keras.load_model(padding_uri)
-            logger.info(f"Đã tải module padding từ {padding_uri}")
+            padding_cache_path = self._generate_cache_path(self.padding_name, self.padding_version)
 
-            # Tải tham số từ MLflow run của mô hình dự đoán
+            if os.path.exists(padding_cache_path):
+                try:
+                    logger.info(f"Loading padding model from cache: {padding_cache_path}")
+                    self.padding = load_model(padding_cache_path, custom_objects=custom_objects)
+                except Exception as e:
+                    logger.warning(f"Failed to load padding model from cache: {str(e)}. Removing corrupted cache file.")
+                    os.remove(padding_cache_path)
+                    raise
+            else:
+                padding_uri = f"models:/{self.padding_name}/{self.padding_version}"
+                logger.info(f"Downloading padding model from {padding_uri}")
+                self.padding = mlflow.keras.load_model(padding_uri)
+                self.padding.save(padding_cache_path)
+                logger.info(f"Saved padding model to cache: {padding_cache_path}")
+
             predict_run_id = predict_info.run_id
             predict_run = self.mlflow_client.get_run(predict_run_id)
             params = predict_run.data.params

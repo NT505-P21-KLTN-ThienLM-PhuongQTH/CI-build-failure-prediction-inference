@@ -38,3 +38,5 @@ jobs:
         tags: |
           hoaiphuongdg26/ci-build-failure-api:latest
           hoaiphuongdg26/ci-build-failure-api:${{ env.SHORT_SHA }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
