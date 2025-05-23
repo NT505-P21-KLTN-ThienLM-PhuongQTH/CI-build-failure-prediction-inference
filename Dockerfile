@@ -26,8 +26,10 @@ WORKDIR /app
 COPY --from=builder /root/.local /root/.local
 
 # Copy only necessary files and directories
+COPY api/ api/
 COPY src/ src/
 COPY config/ config/
+COPY main.py .
 COPY .env .env
 
 # Ensure scripts in PATH

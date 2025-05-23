@@ -27,6 +27,9 @@ jobs:
       id: vars
       run: echo "SHORT_SHA=$(echo ${{ github.sha }} | cut -c1-7)" >> $GITHUB_ENV
 
+    - name: Tạo file .env từ secret
+      run: echo "${{ secrets.ENV_FILE }}" > .env
+
     - name: Build and push Docker image
       uses: docker/build-push-action@v5
       with:
