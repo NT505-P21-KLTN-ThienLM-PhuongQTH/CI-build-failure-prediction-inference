@@ -84,30 +84,31 @@ class LSTMPredictionPipeline:
                 self.predict.save(predict_cache_path)
                 logger.info(f"Saved predict model to cache: {predict_cache_path}")
 
-            # Tải module padding
-            padding_info, self.padding_version = self._get_model_version(self.padding_name, self.padding_version)
-            padding_cache_path = self._generate_cache_path(self.padding_name, self.padding_version)
+            # Tải module padding nếu có tên mô hình
+            if self.padding_name is not None:
+                padding_info, self.padding_version = self._get_model_version(self.padding_name, self.padding_version)
+                padding_cache_path = self._generate_cache_path(self.padding_name, self.padding_version)
 
-            if os.path.exists(padding_cache_path):
-                try:
-                    logger.info(f"Loading padding model from cache: {padding_cache_path}")
-                    self.padding = load_model(padding_cache_path, custom_objects=custom_objects)
-                except Exception as e:
-                    logger.warning(f"Failed to load padding model from cache: {str(e)}. Removing corrupted cache file.")
-                    os.remove(padding_cache_path)
-                    raise
-            else:
-                padding_uri = f"models:/{self.padding_name}/{self.padding_version}"
-                logger.info(f"Downloading padding model from {padding_uri}")
-                self.padding = mlflow.keras.load_model(padding_uri)
-                self.padding.save(padding_cache_path)
-                logger.info(f"Saved padding model to cache: {padding_cache_path}")
+                if os.path.exists(padding_cache_path):
+                    try:
+                        logger.info(f"Loading padding model from cache: {padding_cache_path}")
+                        self.padding = load_model(padding_cache_path, custom_objects=custom_objects)
+                    except Exception as e:
+                        logger.warning(f"Failed to load padding model from cache: {str(e)}. Removing corrupted cache file.")
+                        os.remove(padding_cache_path)
+                        raise
+                else:
+                    padding_uri = f"models:/{self.padding_name}/{self.padding_version}"
+                    logger.info(f"Downloading padding model from {padding_uri}")
+                    self.padding = mlflow.keras.load_model(padding_uri)
+                    self.padding.save(padding_cache_path)
+                    logger.info(f"Saved padding model to cache: {padding_cache_path}")
 
             predict_run_id = predict_info.run_id
             predict_run = self.mlflow_client.get_run(predict_run_id)
             params = predict_run.data.params
-            self.time_step = int(params.get("best_time_step"))
-            self.threshold = float(params.get("best_threshold"))
+            self.time_step = int(params.get("time_step"))
+            self.threshold = float(params.get("threshold"))
             self.input_dim = int(params.get("input_dim", 1))
 
         except Exception as e:
@@ -147,25 +148,35 @@ class LSTMPredictionPipeline:
     def apply_padding(self, sequence):
         """Áp dụng padding sử dụng padding module."""
         try:
-            # sequence là numpy array với shape [short_len, input_dim]
-            target_length = self.time_step
-            if len(sequence) >= target_length:
-                return sequence[:target_length]
+            if self.padding_name is None:
+                target_length = self.time_step
+                if len(sequence) >= target_length:
+                    return sequence[:target_length]
 
-            # Sử dụng logic padding từ PaddingModule.pad_sequence
-            padded_sequence = np.zeros((target_length, self.input_dim))
-            padded_sequence[-len(sequence):] = sequence
+                padded_sequence = np.zeros((target_length, self.input_dim))
+                padded_sequence[-len(sequence):] = sequence
+                return padded_sequence
 
-            current_seq = sequence
-            for i in range(target_length - len(sequence)):
-                input_seq = current_seq[np.newaxis, :, :]
-                next_vector = self.padding.predict(input_seq, verbose=0)
-                padded_sequence[target_length - len(sequence) - 1 - i] = next_vector
-                current_seq = np.vstack([next_vector, current_seq])
-                if len(current_seq) > self.time_step:
-                    current_seq = current_seq[-self.time_step:]
+            if self.padding_name == "Padding-Module":
+                # sequence là numpy array với shape [short_len, input_dim]
+                target_length = self.time_step
+                if len(sequence) >= target_length:
+                    return sequence[:target_length]
 
-            return padded_sequence
+                # Sử dụng logic padding từ PaddingModule.pad_sequence
+                padded_sequence = np.zeros((target_length, self.input_dim))
+                padded_sequence[-len(sequence):] = sequence
+
+                current_seq = sequence
+                for i in range(target_length - len(sequence)):
+                    input_seq = current_seq[np.newaxis, :, :]
+                    next_vector = self.padding.predict(input_seq, verbose=0)
+                    padded_sequence[target_length - len(sequence) - 1 - i] = next_vector
+                    current_seq = np.vstack([next_vector, current_seq])
+                    if len(current_seq) > self.time_step:
+                        current_seq = current_seq[-self.time_step:]
+
+                return padded_sequence
 
         except Exception as e:
             logger.error(f"Padding thất bại: {str(e)}", exc_info=True)

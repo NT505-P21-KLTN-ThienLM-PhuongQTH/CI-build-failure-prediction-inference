@@ -4,18 +4,35 @@ from fastapi import APIRouter, HTTPException
 from dotenv import load_dotenv
 import pika
 import json
+from api.schemas.retrain import RetrainRequest
 
 logger = logging.getLogger("api.retrain")
 load_dotenv()
 
 router = APIRouter()
 @router.post("/retrain")
-async def retrain():
-    await trigger_training_message()
-    return {"message": "Training triggered successfully"
-            }
+async def retrain(request: RetrainRequest):
+    """
+    Trigger a retraining process by sending a message to RabbitMQ.
+    Args:
+        request (RetrainRequest): Request body containing the model_type ('lstm', 'bilstm', or 'padding').
+    Returns:
+        dict: Confirmation message if successful.
+    """
+    model_type = request.model_type
+    # Kiểm tra model_type hợp lệ
+    if model_type not in ["lstm", "bilstm", "padding"]:
+        raise HTTPException(status_code=400, detail="Invalid model_type. Must be 'lstm', 'bilstm', or 'padding'.")
 
-async def trigger_training_message():
+    await trigger_training_message(model_type)
+    return {"message": f"Training triggered successfully for model_type: {model_type}"}
+
+async def trigger_training_message(model_type: str):
+    """
+    Send a training message to RabbitMQ with the specified model_type.
+    Args:
+        model_type (str): The type of model to train ('lstm', 'bilstm', or 'padding').
+    """
     try:
         rabbitmq_user = os.getenv("RABBITMQ_USER")
         rabbitmq_password = os.getenv("RABBITMQ_PASSWORD")
@@ -36,14 +53,15 @@ async def trigger_training_message():
         queue_name = 'training_queue'
         channel.queue_declare(queue=queue_name, durable=True)
 
-        message = {"action": "trigger_training"}
+        # Message bao gồm model_type để consumer xử lý
+        message = {"model_type": model_type}
         channel.basic_publish(
             exchange='',
             routing_key=queue_name,
             body=json.dumps(message),
-            properties=pika.BasicProperties(delivery_mode=2)
+            properties=pika.BasicProperties(delivery_mode=2)  # Message bền bỉ
         )
-        logger.info("Training trigger sent to queue")
+        logger.info(f"Training trigger sent to queue with model_type: {model_type}")
         connection.close()
 
     except Exception as e:

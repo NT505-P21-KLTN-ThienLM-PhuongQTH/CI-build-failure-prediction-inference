@@ -9,6 +9,6 @@ class PredictData(BaseModel):
     """
     predict_name: Optional[str] = "Stacked-LSTM"
     predict_version: Optional[int] = None
-    padding_name: Optional[str] = "Padding-Module"
+    padding_name: Optional[str] = None
     padding_version: Optional[int] = None
     ci_builds: List[Dict[str, Any]]
