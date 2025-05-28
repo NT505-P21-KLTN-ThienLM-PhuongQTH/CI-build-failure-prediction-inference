@@ -9,6 +9,7 @@ from api.schemas.append import AppendData
 from dagshub.upload import Repo
 from dotenv import load_dotenv
 from src.data.main import preprocess_data
+import requests
 
 logger = logging.getLogger("api.append")
 load_dotenv()
@@ -45,6 +46,7 @@ async def append(data: AppendData):
         # Khởi tạo Repo DagsHub
         dagshub_user = os.environ.get("DAGSHUB_USER")
         dagshub_name = os.environ.get("DAGSHUB_NAME")
+        dagshub_token = os.environ.get("DAGSHUB_TOKEN")
         if not dagshub_user or not dagshub_name:
             logger.error("Lack of environmental variables dagshub_user or dagshub_name")
             raise HTTPException(status_code=500, detail="Lack of Dagshub configuration information")
@@ -57,12 +59,26 @@ async def append(data: AppendData):
         branch = input_df["git_branch"].iloc[0]
         remote_path = f"data/processed-local/{project_name}-{branch}.csv"
 
-        # Tải file lên DagsHub
+        # Retrieve the last commit hash for the file or branch
+        try:
+            url = f"https://dagshub.com/api/v1/repos/{dagshub_user}/{dagshub_name}/branches/{branch}"
+            headers = {"Authorization": f"Bearer {dagshub_token}"}
+            response = requests.get(url, headers=headers)
+            response.raise_for_status()  # Raise an exception for 4xx/5xx errors
+            last_commit = response.json().get("commit", {}).get("id")
+            if not last_commit:
+                logger.error("Could not retrieve last commit hash")
+                raise HTTPException(status_code=500, detail="Could not retrieve last commit hash")
+        except requests.RequestException as e:
+            logger.error(f"Error retrieving last commit: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Error retrieving last commit: {str(e)}")
+        # Tải file lên DagsHub with last_commit
         repo.upload(
             local_path=local_path,
             remote_path=remote_path,
             versioning="dvc",
-            commit_message=f"Append {project_name} data"
+            commit_message=f"Append {project_name}/{branch}:{last_commit} data",
+            last_commit=last_commit
         )
         logger.info(f"Has uploaded the processed file to Dagshub: {remote_path}")
 
@@ -71,8 +87,7 @@ async def append(data: AppendData):
         logger.debug(f"Delete the temporary file: {local_path}")
 
         if data.retrain:
-            await trigger_training_message()
-
+            await trigger_training_message(data.model_name)
         duration = time.perf_counter() - start_time
         return {
             "status": 200,

@@ -2,4 +2,4 @@
 from pydantic import BaseModel
 
 class RetrainRequest(BaseModel):
-    model_type: str
+    model_name: str

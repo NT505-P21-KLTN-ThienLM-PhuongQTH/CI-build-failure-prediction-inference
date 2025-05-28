@@ -16,3 +16,4 @@ plotly
 boto3
 dagshub
 pika
+pytest

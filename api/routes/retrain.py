@@ -15,24 +15,22 @@ async def retrain(request: RetrainRequest):
     """
     Trigger a retraining process by sending a message to RabbitMQ.
     Args:
-        request (RetrainRequest): Request body containing the model_type ('lstm', 'bilstm', or 'padding').
+        request (RetrainRequest): Request body containing the model_name ('Stacked-LSTM', 'Stacked-BiLSTM', or'Padding').
     Returns:
         dict: Confirmation message if successful.
     """
-    model_type = request.model_type
-    # Kiểm tra model_type hợp lệ
-    if model_type not in ["lstm", "bilstm", "padding"]:
-        raise HTTPException(status_code=400, detail="Invalid model_type. Must be 'lstm', 'bilstm', or 'padding'.")
+    model_name = request.model_name
+    await trigger_training_message(model_name)
+    return {"message": f"Training triggered successfully for model_name: {model_name}"}
 
-    await trigger_training_message(model_type)
-    return {"message": f"Training triggered successfully for model_type: {model_type}"}
-
-async def trigger_training_message(model_type: str):
+async def trigger_training_message(model_name: str):
     """
-    Send a training message to RabbitMQ with the specified model_type.
+    Send a training message to RabbitMQ with the specified model_name.
     Args:
-        model_type (str): The type of model to train ('lstm', 'bilstm', or 'padding').
+        model_name (str): The type of model to train ('Stacked-LSTM', 'Stacked-BiLSTM', or 'Padding').
     """
+    if model_name not in ["Stacked-LSTM", "Stacked-BiLSTM", "Padding"]:
+        raise HTTPException(status_code=400, detail="Invalid model_name. Must be 'Stacked-LSTM', 'Stacked-BiLSTM', or 'Padding'.")
     try:
         rabbitmq_user = os.getenv("RABBITMQ_USER")
         rabbitmq_password = os.getenv("RABBITMQ_PASSWORD")
@@ -53,15 +51,15 @@ async def trigger_training_message(model_type: str):
         queue_name = 'training_queue'
         channel.queue_declare(queue=queue_name, durable=True)
 
-        # Message bao gồm model_type để consumer xử lý
-        message = {"model_type": model_type}
+        # Message bao gồm model_name để consumer xử lý
+        message = {"model_name": model_name}
         channel.basic_publish(
             exchange='',
             routing_key=queue_name,
             body=json.dumps(message),
             properties=pika.BasicProperties(delivery_mode=2)  # Message bền bỉ
         )
-        logger.info(f"Training trigger sent to queue with model_type: {model_type}")
+        logger.info(f"Training trigger sent to queue with model_name: {model_name}")
         connection.close()
 
     except Exception as e:
