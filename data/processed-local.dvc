@@ -1,5 +1,5 @@
 outs:
-    - md5: c0066e2e58ad66714afe54a0f6efb30d.dir
-      size: 13351928
+    - md5: b234fcf7f82ca68f5a49e45323954ccd.dir
+      size: 13353937
       path: processed-local
       nfiles: 10
