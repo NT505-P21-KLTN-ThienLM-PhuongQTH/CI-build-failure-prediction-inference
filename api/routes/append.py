@@ -191,7 +191,7 @@ async def append(data: AppendData):
         os.remove(local_path)
         logger.debug(f"Deleted temporary file: {local_path}")
 
-        if data.retrain:
+        if data.retrain or len(combined_df) >= 1000:
             await trigger_training_message(data.model_name)
 
         duration = time.perf_counter() - start_time
