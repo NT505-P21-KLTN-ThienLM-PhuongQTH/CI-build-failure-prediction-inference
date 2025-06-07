@@ -19,59 +19,26 @@ load_dotenv()
 router = APIRouter()
 
 
-def download_existing_file_with_streaming(dagshub_repo, remote_path):
-    """Download existing file using DagsHub streaming filesystem"""
-    fs = None
-    import uuid
-    mount_path = f"./dagshub_mount_{uuid.uuid4().hex[:8]}"
+def download_existing_file_with_streaming(dagshub_user, dagshub_name , remote_path):
     try:
-        logger.info(f"Attempting to create DagsHub filesystem at {mount_path}")
-        fs = DagsHubFilesystem(mount_path, dagshub_repo)
-
-        logger.info(f"Created DagsHub filesystem at {mount_path}")
-
-        # Check if local file exists to avoid confusion
-        local_path_check = os.path.join(os.getcwd(), remote_path)
-        if os.path.exists(local_path_check):
-            logger.warning(f"Local file exists and may interfere: {local_path_check}")
-
-        with fs.open(os.path.join(mount_path, remote_path), 'r') as f:
-            lines = f.readlines()
-            logger.debug(f"Number of lines read: {len(lines)}")
-            for i, line in enumerate(lines, 1):
-                logger.debug(f"Line {i}: {line.strip()}")
-            content = ''.join(lines)
-            if len(content) < 10000:
-                logger.debug(f"Full raw content:\n{content}")
-            logger.info(f"Total length of raw content: {len(content)}")
-
-            if content.strip():
-                existing_df = pd.read_csv(StringIO(content), encoding='utf-8', on_bad_lines='warn', sep=',')
-                logger.info(f"Successfully downloaded existing file with {len(existing_df)} rows using streaming")
-                logger.debug(f"Existing file columns: {list(existing_df.columns)}")
-                logger.debug(f"Full existing data:\n{existing_df.to_string()}")
-                return existing_df
-            else:
-                logger.warning(f"File exists but is empty: {remote_path}")
-                return pd.DataFrame()
-    except FileNotFoundError:
-        logger.info(f"File not found with streaming: {remote_path}")
-        return pd.DataFrame()
-    except Exception as file_error:
-        logger.warning(f"Could not open file with streaming: {str(file_error)}")
-        raise file_error
-    finally:
-        if fs is not None:
-            try:
-                del fs
-                logger.debug(f"Cleaned up DagsHub filesystem at {mount_path}")
-                # Optional: Remove mount directory if it exists
-                import shutil
-                if os.path.exists(mount_path):
-                    shutil.rmtree(mount_path, ignore_errors=True)
-                    logger.debug(f"Removed mount directory: {mount_path}")
-            except Exception as cleanup_error:
-                logger.warning(f"Error cleaning up filesystem at {mount_path}: {str(cleanup_error)}")
+        url = f"https://dagshub.com/api/v1/repos/{dagshub_user}/{dagshub_name}/raw/main/{remote_path}"
+        headers = {"Authorization": f"Bearer {os.environ.get('DAGSHUB_TOKEN')}"}
+        response = requests.get(url, headers=headers, stream=True)
+        response.raise_for_status()
+        content = response.text
+        if content.strip():
+            existing_df = pd.read_csv(StringIO(content), encoding='utf-8', on_bad_lines='warn', sep=',')
+            logger.info(f"Downloaded the existing file with {len(existing_df)} rows")
+            return existing_df
+        else:
+            logger.warning(f"The file exists but empty: {remote_path}")
+            return pd.DataFrame()
+    except requests.RequestException as e:
+        if e.response and e.response.status_code == 404:
+            logger.info(f"The file doesn't exists: {remote_path}")
+            return pd.DataFrame()
+        logger.warning(f"File download error: {str(e)}")
+        raise
 
 def check_duplicate_builds(existing_df, new_df, timestamp_column='gh_build_started_at'):
     """Check for duplicate builds based on timestamp and remove duplicates from new data"""
@@ -190,7 +157,7 @@ async def append(data: AppendData):
 
         # Download existing file using streaming method
         logger.info(f"Checking for existing file: {remote_path}")
-        existing_df = download_existing_file_with_streaming(dagshub_repo, remote_path)
+        existing_df = download_existing_file_with_streaming(dagshub_user, dagshub_name, remote_path)
 
         logger.info(f"Existing data shape: {existing_df.shape}")
         logger.info(f"New processed data shape: {processed_features.shape}")
