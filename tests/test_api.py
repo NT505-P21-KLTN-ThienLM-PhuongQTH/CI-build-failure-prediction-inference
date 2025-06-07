@@ -6,13 +6,7 @@ from main import app
 
 client = TestClient(app)
 
-
-def test_predict_endpoint():
-    # Sample input
-    input_data = {
-      "model": "string",
-      "status": "string",
-      "ci_builds": [
+ci_builds = [
          {
           "_id": "680e63cd9e247d8fde8df706",
           "git_branch": "main",
@@ -329,6 +323,18 @@ def test_predict_endpoint():
           "gh_build_started_at": "12/14/2024 09:01:41"
         }
       ]
+
+def test_health_endpoint():
+    response = client.get("/health")
+    assert response.status_code == 200
+    assert response.json() == {"status": "healthy"}
+
+def test_predict_endpoint():
+    # Sample input
+    input_data = {
+      "model": "string",
+      "status": "string",
+      "ci_builds": ci_builds
     }
 
     # Call endpoint
@@ -339,8 +345,18 @@ def test_predict_endpoint():
     assert "prediction" in response.json(), "Prediction key missing"
     assert isinstance(response.json()["prediction"], list), "Prediction is not a list"
 
+def test_append():
+    # Sample input
+    input_data = {
+      "retrain": "false",
+      "model_name": "Padding",
+      "ci_builds": ci_builds
+    }
 
-def test_health_endpoint():
-    response = client.get("/health")
-    assert response.status_code == 200
-    assert response.json() == {"status": "healthy"}
+    # Call endpoint
+    response = client.post("/data/append", json=input_data)
+
+    # Assertions
+    assert response.status_code == 200, "Append endpoint failed"
+    assert "message" in response.json(), "Message key missing"
+    assert response.json()["message"] == "CI builds appended successfully"
