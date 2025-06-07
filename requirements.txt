@@ -17,3 +17,5 @@ boto3
 dagshub
 pika
 pytest
+dvc
+dvc_s3
