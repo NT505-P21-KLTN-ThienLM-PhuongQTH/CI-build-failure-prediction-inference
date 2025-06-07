@@ -7,7 +7,6 @@ from fastapi import APIRouter, HTTPException
 from api.routes.retrain import trigger_training_message
 from api.schemas.append import AppendData
 from dagshub.upload import Repo
-from dagshub.streaming import DagsHubFilesystem
 from dotenv import load_dotenv
 from src.data.main import preprocess_data
 import requests
@@ -24,6 +23,9 @@ def download_existing_file_with_streaming(dagshub_user, dagshub_name , remote_pa
         url = f"https://dagshub.com/api/v1/repos/{dagshub_user}/{dagshub_name}/raw/main/{remote_path}"
         headers = {"Authorization": f"Bearer {os.environ.get('DAGSHUB_TOKEN')}"}
         response = requests.get(url, headers=headers, stream=True)
+        if response.status_code == 404:
+            logger.info(f"The file doesn't exist: {remote_path}")
+            return pd.DataFrame()
         response.raise_for_status()
         content = response.text
         if content.strip():
@@ -34,9 +36,6 @@ def download_existing_file_with_streaming(dagshub_user, dagshub_name , remote_pa
             logger.warning(f"The file exists but empty: {remote_path}")
             return pd.DataFrame()
     except requests.RequestException as e:
-        if e.response and e.response.status_code == 404:
-            logger.info(f"The file doesn't exists: {remote_path}")
-            return pd.DataFrame()
         logger.warning(f"File download error: {str(e)}")
         raise
 
