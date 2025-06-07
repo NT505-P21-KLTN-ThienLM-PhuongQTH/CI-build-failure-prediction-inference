@@ -41,29 +41,20 @@ def download_existing_file_with_streaming(dagshub_user, dagshub_name , remote_pa
         raise
 
 def check_duplicate_builds(existing_df, new_df, timestamp_column='gh_build_started_at'):
-    """Check for duplicate builds based on timestamp and remove duplicates from new data"""
     if existing_df.empty:
         logger.info("No existing data, returning all new data")
         return new_df
-
     if timestamp_column not in existing_df.columns or timestamp_column not in new_df.columns:
-        logger.warning(f"Timestamp column '{timestamp_column}' not found, skipping duplicate check")
+        logger.warning(f"The timestamp '{timestamp_column}' is not found, skip the overlap")
         return new_df
-
-    # Convert timestamps to comparable format
-    existing_timestamps = set(existing_df[timestamp_column].astype(str))
-    logger.info(f"Found {len(existing_timestamps)} existing timestamps")
-
-    # Filter out duplicates from new data
-    mask = ~new_df[timestamp_column].astype(str).isin(existing_timestamps)
+    existing_timestamps = set(existing_df[timestamp_column].dropna())
+    mask = ~new_df[timestamp_column].isin(existing_timestamps)
     filtered_df = new_df[mask].copy()
-
     duplicates_count = len(new_df) - len(filtered_df)
     if duplicates_count > 0:
-        logger.info(f"Filtered out {duplicates_count} duplicate builds based on {timestamp_column}")
+        logger.info(f"Filter {duplicates_count} copies of Build based on {timestamp_column}")
     else:
-        logger.info("No duplicates found in new data")
-
+        logger.info("No Build is not found in the new data")
     return filtered_df
 
 def validate_and_process_input(data: AppendData) -> pd.DataFrame:
@@ -110,39 +101,18 @@ def prepare_dagshub_and_paths(input_df: pd.DataFrame) -> tuple:
 
 def merge_existing_and_new_data(existing_df: pd.DataFrame, filtered_new_data: pd.DataFrame) -> pd.DataFrame:
     if not existing_df.empty:
-        # Ensure both dataframes have the same columns
-        existing_cols = set(existing_df.columns)
-        new_cols = set(filtered_new_data.columns)
-
-        if existing_cols != new_cols:
-            logger.warning(f"Column mismatch - Existing: {existing_cols}, New: {new_cols}")
-            # Add missing columns with NaN values
-            for col in existing_cols - new_cols:
-                filtered_new_data[col] = None
-            for col in new_cols - existing_cols:
-                existing_df[col] = None
-            # Reorder columns to match
-            column_order = list(existing_df.columns)
-            filtered_new_data = filtered_new_data[column_order]
-
+        common_cols = existing_df.columns.intersection(filtered_new_data.columns)
+        if len(common_cols) < len(existing_df.columns) or len(common_cols) < len(filtered_new_data.columns):
+            logger.warning(f"Các cột không khớp, chỉ giữ cột chung: {common_cols}")
+            existing_df = existing_df[common_cols]
+            filtered_new_data = filtered_new_data[common_cols]
         combined_df = pd.concat([existing_df, filtered_new_data], ignore_index=True)
-        logger.info(f"Combining {len(existing_df)} existing rows with {len(filtered_new_data)} new rows")
-        logger.info(f"Combined data shape: {combined_df.shape}")
+        logger.info(f"Kết hợp {len(existing_df)} hàng hiện có với {len(filtered_new_data)} hàng mới")
     else:
         combined_df = filtered_new_data
-        logger.info(f"Creating new file with {len(filtered_new_data)} rows")
-
-    # Verify combined data integrity
-    logger.info(f"Final combined data shape: {combined_df.shape}")
-    if len(combined_df) < max(len(existing_df), len(filtered_new_data)):
-        logger.error("Data loss detected during combination!")
-        logger.error(
-            f"Expected at least {max(len(existing_df), len(filtered_new_data))} rows, got {len(combined_df)}")
-
-    # Sort by timestamp to maintain order (optional)
+        logger.info(f"Tạo file mới với {len(filtered_new_data)} hàng")
     combined_df['gh_build_started_at'] = pd.to_datetime(combined_df['gh_build_started_at'], errors='coerce')
     combined_df = combined_df.sort_values('gh_build_started_at').reset_index(drop=True)
-
     return combined_df
 
 @router.post("/dataset/append")
@@ -192,14 +162,6 @@ async def append(data: AppendData):
             combined_df.to_csv(local_path, index=False)
             logger.info(f"Saved combined data to temporary file: {local_path}")
 
-        # Verify the saved file
-        verify_df = pd.read_csv(local_path)
-        logger.info(f"Verified saved file shape: {verify_df.shape}")
-        if len(verify_df) != len(combined_df):
-            logger.error(
-                f"File save verification failed! Expected {len(combined_df)} rows, file has {len(verify_df)} rows")
-
-        # Retrieve the last commit hash for the file or branch
         try:
             url = f"https://dagshub.com/api/v1/repos/{dagshub_user}/{dagshub_name}/branches/main"
             headers = {"Authorization": f"Bearer {dagshub_token}"}
