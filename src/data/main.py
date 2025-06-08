@@ -175,7 +175,7 @@ def preprocess_data(is_training=None, DO_FEATURE_IMPORTANCE=False, target_featur
         final_combined_df = final_combined_df[target_features].copy()
 
     if is_training:
-        output_dir = os.path.join(PROJECT_ROOT, '../../data/processed-local')
+        output_dir = os.path.join(PROJECT_ROOT, '../../data/processed-local/main')
         os.makedirs(output_dir, exist_ok=True)
         save_projects_to_files(final_combined_df, output_dir, 'gh_project_name')
 

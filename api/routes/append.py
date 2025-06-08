@@ -94,7 +94,7 @@ def prepare_dagshub_and_paths(input_df: pd.DataFrame) -> tuple:
     project_name = input_df["gh_project_name"].iloc[0]
     project_name = project_name.split("/", 1)[-1]
     branch = input_df["git_branch"].iloc[0]
-    remote_path = f"data/processed-local/{project_name}-{branch}.csv"
+    remote_path = f"data/processed-local/{branch}/{project_name}.csv"
 
     return repo, dagshub_repo, dagshub_user, dagshub_name, dagshub_token, remote_path, project_name, branch
 
