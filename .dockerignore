@@ -1,0 +1,10 @@
+.dvc/
+.github/
+.venv/
+data/
+cache/
+logs/
+tests/
+.env.sample
+.gitignore
+Dockerfile

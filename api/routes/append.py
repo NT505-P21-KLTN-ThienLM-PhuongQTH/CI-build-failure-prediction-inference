@@ -11,14 +11,14 @@ from dotenv import load_dotenv
 from src.data.main import preprocess_data
 import requests
 from io import StringIO
+import dagshub
 
 logger = logging.getLogger("api.append")
 load_dotenv()
 
 router = APIRouter()
 
-
-def download_existing_file_with_streaming(dagshub_user, dagshub_name , remote_path):
+def download_existing_file_with_streaming(dagshub_user, dagshub_name, remote_path):
     try:
         url = f"https://dagshub.com/api/v1/repos/{dagshub_user}/{dagshub_name}/raw/main/{remote_path}"
         headers = {"Authorization": f"Bearer {os.environ.get('DAGSHUB_TOKEN')}"}
@@ -84,9 +84,13 @@ def prepare_dagshub_and_paths(input_df: pd.DataFrame) -> tuple:
     dagshub_name = os.environ.get("DAGSHUB_NAME")
     dagshub_repo = os.environ.get("DAGSHUB_REPO")
     dagshub_token = os.environ.get("DAGSHUB_TOKEN")
-    if not dagshub_user or not dagshub_name:
-        logger.error("Lack of environmental variables dagshub_user or dagshub_name")
-        raise HTTPException(status_code=500, detail="Lack of Dagshub configuration information")
+    if not all([dagshub_user, dagshub_name, dagshub_repo, dagshub_token]):
+        logger.error("Missing DagsHub environment variables: DAGSHUB_USER, DAGSHUB_NAME, DAGSHUB_REPO, or DAGSHUB_TOKEN")
+        raise HTTPException(status_code=500, detail="Missing DagsHub configuration information")
+
+    if dagshub_token:
+        dagshub.auth.add_app_token(dagshub_token)
+        os.environ['DAGSHUB_USER_TOKEN'] = dagshub_token
 
     repo = Repo(dagshub_user, dagshub_name)
 

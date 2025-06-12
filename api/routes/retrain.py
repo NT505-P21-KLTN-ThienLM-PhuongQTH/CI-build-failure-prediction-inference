@@ -29,7 +29,7 @@ async def trigger_training_message(model_name: str):
     Args:
         model_name (str): The type of model to train ('Stacked-LSTM', 'Stacked-BiLSTM', or 'Padding').
     """
-    if model_name not in ["Stacked-LSTM", "Stacked-BiLSTM", "Padding"]:
+    if model_name not in ["Stacked-LSTM", "Stacked-BiLSTM", "Padding", "ConvLSTM"]:
         raise HTTPException(status_code=400, detail="Invalid model_name. Must be 'Stacked-LSTM', 'Stacked-BiLSTM', or 'Padding'.")
     try:
         rabbitmq_user = os.getenv("RABBITMQ_USER")

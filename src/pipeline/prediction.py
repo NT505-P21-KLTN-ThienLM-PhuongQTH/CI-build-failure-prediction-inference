@@ -185,7 +185,6 @@ class LSTMPredictionPipeline:
     def predict_build(self, input_data):
         """Dự đoán trên dữ liệu đầu vào."""
         try:
-            logger.info("wendy")
             model_input = self.preprocess_input_data(input_data)
             predictions = self.predict.predict(model_input)
             logger.info(f"Dự đoán thành công cho {len(input_data)} bản build đầu vào.")
