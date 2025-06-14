@@ -30,7 +30,6 @@ COPY api/ api/
 COPY src/ src/
 COPY config/ config/
 COPY main.py .
-COPY .env .env
 
 # Ensure scripts in PATH
 ENV PATH=/root/.local/bin:$PATH
