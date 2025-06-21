@@ -6,9 +6,10 @@ numpy>=1.21,<2.0
 scikit-learn>=1.0,<2.0
 pydantic==2.6.4
 python-dotenv>=0.21
-protobuf==3.20.3
+protobuf==4.25.8
 dagshub
 pika
 dvc[gs,s3]>=3.0.0,<4.0.0
 keras
 tensorflow
+urllib3>=2.2.2 # not directly required, pinned by Snyk to avoid a vulnerability
