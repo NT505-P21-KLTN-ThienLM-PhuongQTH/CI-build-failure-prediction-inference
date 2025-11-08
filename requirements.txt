@@ -12,3 +12,4 @@ pika
 dvc[gs,s3]>=3.0.0,<4.0.0
 keras
 tensorflow
+urllib3>=2.2.2 # not directly required, pinned by Snyk to avoid a vulnerability
